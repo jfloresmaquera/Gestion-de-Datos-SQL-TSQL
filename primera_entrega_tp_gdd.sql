@@ -273,8 +273,8 @@ CREATE TABLE StarTeam.Modelo (
 
 --Vamos a hacer una funcion para que en la tabla de modelo
 
-CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255))
-RETURNS DECIMAL(18,0)
+CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255)) -- en tabla maestra se llama MODELO_CAMION
+RETURNS int
 AS
 BEGIN
 	DECLARE @MODELO_CAMION_ID as int
@@ -298,6 +298,17 @@ CREATE PROCEDURE StarTeam.Migrar_Modelo_Camion
 AS
 BEGIN
   INSERT INTO StarTeam.Modelo_Camion (MODELO_CAMION_DESCRIPCION)
+          SELECT DISTINCT MODELO_CAMION
+          FROM gd_esquema.Maestra
+          WHERE MODELO_CAMION IS NOT NULL
+END
+GO
+
+
+CREATE PROCEDURE StarTeam.Migrar_Modelo
+AS
+BEGIN
+  INSERT INTO StarTeam.Modelo ()
           SELECT DISTINCT MODELO_CAMION
           FROM gd_esquema.Maestra
           WHERE MODELO_CAMION IS NOT NULL
