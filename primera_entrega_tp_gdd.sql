@@ -92,6 +92,7 @@ GO
 
 /*-------------------------CREACION TABLAS---------------------------*/
 
+
 CREATE TABLE StarTeam.Chofer (
   CHOFER_NRO_LEGAJO int PRIMARY KEY,
   CHOFER_NOMBRE nvarchar(255) NOT NULL,
@@ -165,7 +166,7 @@ CREATE TABLE StarTeam.Viaje (
   VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2)
   );
 
-  CREATE TABLE StarTeam.Paquete_X_Viaje (
+CREATE TABLE StarTeam.Paquete_X_Viaje (
   PAQUETE_NRO_VIAJE int FOREIGN KEY REFERENCES StarTeam.Viaje(VIAJE_NRO_VIAJE) NOT NULL,
   PAQUETE_ID int FOREIGN KEY REFERENCES StarTeam.Paquete(PAQUETE_ID) NOT NULL,
   PAQUETE_CANTIDAD int,
@@ -256,6 +257,11 @@ Gracias a ellas vamos a poder hacer esa conexión entre las tablas.
 Basandonos en un dato podemos conseguir su FK equivalente para ingresar en la tabla
 */
 
+CREATE TABLE StarTeam.Modelo_Camion (
+  MODELO_CAMION_ID int PRIMARY KEY IDENTITY(1,1),
+  MODELO_CAMION_DESCRIPCION nvarchar(255) NOT NULL
+);
+
 CREATE TABLE StarTeam.Modelo (
   MODELO_NUMERO int PRIMARY KEY IDENTITY(1,1),
   MODELO_CAMION_ID int FOREIGN KEY REFERENCES StarTeam.Modelo_Camion(MODELO_CAMION_ID) NOT NULL,
@@ -264,4 +270,36 @@ CREATE TABLE StarTeam.Modelo (
   MODELO_CAPACIDAD_CARGA int NOT NULL
   );
 
+
 --Vamos a hacer una funcion para que en la tabla de modelo
+
+CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255))
+RETURNS DECIMAL(18,0)
+AS
+BEGIN
+	DECLARE @MODELO_CAMION_ID as int
+
+  SELECT @MODELO_CAMION_ID = MODELO_CAMION_ID FROM StarTeam.Modelo_Camion
+  WHERE MODELO_CAMION_DESCRIPCION = @MODELO_CAMION_DESCRIPCION
+
+  RETURN @MODELO_CAMION_ID
+
+END
+GO
+
+
+/*-------------------CREACION DE PROCEDIMIENTOS----------------------*/
+
+/*
+Con estos vamos a efectivamente llenar de datos cada tabla 
+*/
+
+CREATE PROCEDURE StarTeam.Migrar_Modelo_Camion
+AS
+BEGIN
+  INSERT INTO StarTeam.Modelo_Camion (MODELO_CAMION_DESCRIPCION)
+          SELECT DISTINCT MODELO_CAMION
+          FROM gd_esquema.Maestra
+          WHERE MODELO_CAMION IS NOT NULL
+END
+GO
