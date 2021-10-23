@@ -251,29 +251,8 @@ CREATE TABLE StarTeam.Material_Por_Tarea (
 
 /*---------------------CREACION DE FUNCIONES-------------------------*/
 
-/*
-Con las funciones vamos a poder conseguir las FK de una tabla.
-Gracias a ellas vamos a poder hacer esa conexión entre las tablas.
-Basandonos en un dato podemos conseguir su FK equivalente para ingresar en la tabla
-*/
 
-CREATE TABLE StarTeam.Modelo_Camion (
-  MODELO_CAMION_ID int PRIMARY KEY IDENTITY(1,1),
-  MODELO_CAMION_DESCRIPCION nvarchar(255) NOT NULL
-);
-
-CREATE TABLE StarTeam.Modelo (
-  MODELO_NUMERO int PRIMARY KEY IDENTITY(1,1),
-  MODELO_CAMION_ID int FOREIGN KEY REFERENCES StarTeam.Modelo_Camion(MODELO_CAMION_ID) NOT NULL,
-  MODELO_VELOCIDAD_MAX int NOT NULL,
-  MODELO_CAPACIDAD_TANQUE int NOT NULL,
-  MODELO_CAPACIDAD_CARGA int NOT NULL
-  );
-
-
---Vamos a hacer una funcion para que en la tabla de modelo
-
-CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255)) -- en tabla maestra se llama MODELO_CAMION
+CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255))
 RETURNS int
 AS
 BEGIN
@@ -308,9 +287,15 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Modelo
 AS
 BEGIN
-  INSERT INTO StarTeam.Modelo ()
-          SELECT DISTINCT MODELO_CAMION
+  INSERT INTO StarTeam.Modelo (MODELO_CAMION_ID, MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA)
+          SELECT DISTINCT StarTeam.Obtener_Camion_ID(MODELO_CAMION), MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA
           FROM gd_esquema.Maestra
           WHERE MODELO_CAMION IS NOT NULL
+	        ORDER BY MODELO_CAMION_ID ASC
 END
 GO
+
+/*------------------EJECUCION DE PROCEDIMIENTOS----------------------*/
+
+EXEC StarTeam.Migrar_Modelo_Camion
+EXEC StarTeam.Migrar_Modelo
