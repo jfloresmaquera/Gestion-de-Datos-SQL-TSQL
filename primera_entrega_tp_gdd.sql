@@ -70,7 +70,7 @@ IF OBJECT_ID('StarTeam.Tarea_Tipo', 'U') IS NOT NULL
   DROP TABLE StarTeam.Tarea_Tipo
 GO
 
-IF OBJECT_ID('StarTeam.Material_Por_Tarea', 'U') IS NOT NULL
+IF OBJECT_ID('StarTeam.Material_X_Tarea', 'U') IS NOT NULL
   DROP TABLE StarTeam.Chofer
 GO
 
@@ -81,7 +81,15 @@ GO
 /*------------------------BORRAR FUNCIONES---------------------------*/
 IF OBJECT_ID('StarTeam.Obtener_Camion_ID') IS NOT NULL
 	DROP FUNCTION StarTeam.Obtener_Camion_ID
+GO
 
+IF OBJECT_ID('StarTeam.Obtener_Modelo_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Modelo_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Marca_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Marca_ID
+GO
 /*---------------------BORRAR PROCEDIMIENTOS-------------------------*/
 
 IF OBJECT_ID('StarTeam.Migrar_Chofer') IS NOT NULL
@@ -138,7 +146,7 @@ IF OBJECT_ID('StarTeam.Migrar_Tarea_X_Orden_Trabajo') IS NOT NULL
 IF OBJECT_ID('StarTeam.Migrar_Material') IS NOT NULL
   DROP PROCEDURE StarTeam.Migrar_Material
 
-IF OBJECT_ID('StarTeam.Migrar_Material_Por_Tarea') IS NOT NULL
+IF OBJECT_ID('StarTeam.Migrar_Material_X_Tarea') IS NOT NULL
   DROP PROCEDURE StarTeam.Migrar_Material_Por_Tarea
 
 
@@ -228,12 +236,12 @@ GO
 
 CREATE TABLE StarTeam.Viaje (
   VIAJE_NRO_VIAJE int PRIMARY KEY IDENTITY(1,1),
-  VIAJE_CAMION_NUMERO int FOREIGN KEY REFERENCES StarTeam.Camion(CAMION_NUMERO) NOT NULL,
-  VIAJE_RECORRIDO_NUMERO int FOREIGN KEY REFERENCES StarTeam.Recorrido(RECORRIDO_NUMERO) NOT NULL,
-  VIAJE_CHOFER_LEGAJO int FOREIGN KEY REFERENCES StarTeam.Chofer(CHOFER_NRO_LEGAJO) NOT NULL,
+  VIAJE_CAMION_NUMERO int FOREIGN KEY REFERENCES StarTeam.Camion(CAMION_NUMERO),  -- aca le sacamos el NOT NULL porque al principio no tenemos registros
+  VIAJE_RECORRIDO_NUMERO int FOREIGN KEY REFERENCES StarTeam.Recorrido(RECORRIDO_NUMERO), -- aca le sacamos el NOT NULL porque al principio no tenemos registros
+  VIAJE_CHOFER_LEGAJO int FOREIGN KEY REFERENCES StarTeam.Chofer(CHOFER_NRO_LEGAJO), -- aca le sacamos el NOT NULL porque al principio no tenemos registros
   VIAJE_FECHA_INICIO datetime2(7) NOT NULL,
-  VIAJE_FECHA_FIN datetime2(3),
-  VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2)
+  VIAJE_FECHA_FIN datetime2(3) NOT NULL,
+  VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2) NOT NULL
 );
 GO
 
@@ -255,6 +263,12 @@ CREATE TABLE StarTeam.Taller (
 );
 GO
 
+CREATE TABLE StarTeam.Orden_Estado (
+  ORDEN_ESTADO_ID int PRIMARY KEY IDENTITY(1,1),
+  ORDEN_ESTADO_DESCRIPCION nvarchar(255) NOT NULL
+);
+GO
+
 CREATE TABLE StarTeam.Orden_Trabajo (
   ORDEN_TRABAJO_NUMERO int PRIMARY KEY IDENTITY(1,1),
   ORDEN_TRABAJO_CAMION int FOREIGN KEY REFERENCES StarTeam.Camion(CAMION_NUMERO) NOT NULL,
@@ -264,11 +278,6 @@ CREATE TABLE StarTeam.Orden_Trabajo (
 );
 GO
 
-CREATE TABLE StarTeam.Orden_Estado (
-  ORDEN_ESTADO_ID int PRIMARY KEY IDENTITY(1,1),
-  ORDEN_ESTADO_DESCRIPCION nvarchar(255) NOT NULL
-);
-GO
 
 CREATE TABLE StarTeam.Mecanico (
   MECANICO_NRO_LEGAJO int PRIMARY KEY,
@@ -285,7 +294,7 @@ GO
 
 
 CREATE TABLE StarTeam.Tarea_Tipo (
-  TAREA_TIPO_ID int PRIMARY KEY,
+  TAREA_TIPO_ID int PRIMARY KEY IDENTITY(1,1),
   TAREA_TIPO_DESCRIPCION nvarchar(255) NOT NULL
 );
 GO
@@ -313,26 +322,25 @@ GO
 
 
 CREATE TABLE StarTeam.Material (
-  MATERIAL_CODIGO int PRIMARY KEY,
-  MATERIAL_NOMBRE nvarchar(20) NOT NULL,
-  MATERIAL_PRECIO int NOT NULL
+  MATERIAL_CODIGO nvarchar(100) PRIMARY KEY,
+  MATERIAL_DESCRIPCION nvarchar(255) NOT NULL,
+  MATERIAL_PRECIO decimal(18,2) NOT NULL
 );
 GO
 
-CREATE TABLE StarTeam.Material_Por_Tarea (
+CREATE TABLE StarTeam.Material_X_Tarea (
   TAREA_CODIGO int FOREIGN KEY REFERENCES StarTeam.Tarea(TAREA_CODIGO) NOT NULL,
-  MATERIAL_CODIGO int FOREIGN KEY REFERENCES StarTeam.Material(MATERIAL_CODIGO) NOT NULL,
-  MATERIAL_POR_TAREA_CANTIDAD int NOT NULL,
+  MATERIAL_CODIGO nvarchar(100) FOREIGN KEY REFERENCES StarTeam.Material(MATERIAL_CODIGO) NOT NULL,
+  MATERIAL_POR_TAREA_CANTIDAD int,
   CONSTRAINT PK_Material_Por_Tarea PRIMARY KEY (TAREA_CODIGO, MATERIAL_CODIGO)
 );
 GO
 
 
-
 /*---------------------CREACION DE FUNCIONES-------------------------*/
 
 
-CREATE FUNCTION StarTeam.Obtener_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255))
+CREATE FUNCTION StarTeam.Obtener_Modelo_Camion_ID (@MODELO_CAMION_DESCRIPCION NVARCHAR(255))
 RETURNS int
 AS
 BEGIN
@@ -356,10 +364,13 @@ BEGIN
 
   SELECT @MODELO_CAMION_ID = StarTeam.Obtener_Camion_ID(@MODELO_CAMION_DESCRIPCION)
 
-  SELECT
+  SELECT @MODELO_ID = MODELO_NUMERO FROM StarTeam.Modelo
+  WHERE  @MODELO_CAMION_ID = MODELO_CAMION_ID
+  AND    @MODELO_VELOCIDAD_MAX = MODELO_VELOCIDAD_MAX
+  AND    @MODELO_CAPACIDAD_TANQUE = MODELO_CAPACIDAD_TANQUE
+  AND    @MODELO_CAPACIDAD_CARGA = MODELO_CAPACIDAD_CARGA
 
   RETURN @MODELO_ID
-
 END
 GO
 
@@ -377,6 +388,117 @@ BEGIN
 
 END
 GO
+
+CREATE FUNCTION StarTeam.Obtener_Ciudad_ID (@CIUDAD_DESCRIPCION NVARCHAR(255))
+RETURNS int
+AS
+BEGIN
+	DECLARE @CIUDAD_ID as int
+
+  SELECT @CIUDAD_ID = CIUDAD_ID FROM StarTeam.Ciudad
+  WHERE CIUDAD_DESCRIPCION = @CIUDAD_DESCRIPCION
+
+  RETURN @CIUDAD_ID
+
+END
+GO
+
+CREATE FUNCTION StarTeam.Obtener_Recorrido_ID (@RECORRIDO_CIUDAD_ORIGEN int, @RECORRIDO_CIUDAD_ORIGEN int, @RECORRIDO_KM int, @RECORRIDO_PRECIO decimal(18,2))
+RETURNS int
+AS
+BEGIN
+	DECLARE @Recorrido_ID as int
+
+  SELECT @Recorrido_ID = Recorrido_Numero FROM StarTeam.Recorrido
+  WHERE Recorrido_DESCRIPCION = @Recorrido_DESCRIPCION
+
+  RETURN @Recorrido_ID
+
+END
+GO
+
+
+CREATE FUNCTION StarTeam.Obtener_Viaje_Recorrido_Numero (@CIUDAD_DESCRIPCION NVARCHAR(255), @RECORRIDO_KM int, @RECORRIDO_PRECIO decimal(18,2))
+RETURNS int
+AS
+BEGIN
+	DECLARE @RECORRIDO_CIUDAD_ORIGEN as int
+  DECLARE @RECORRIDO_ORIGEN_ID as int
+  DECLARE @RECORRIDO_DESTINO_ID as int
+
+  SELECT @RECORRIDO_CIUDAD_ORIGEN = StarTeam.Obtener_Ciudad_ID(@CIUDAD_DESCRIPCION)
+
+  SELECT @RECORRIDO_ORIGEN_ID = RECORRIDO_NUMERO FROM StarTeam.Recorrido
+  WHERE  @CIUDAD_ORIGEN_ID = CIUDAD_ORIGEN_ID
+  AND    @MODELO_VELOCIDAD_MAX = MODELO_VELOCIDAD_MAX
+  AND    @MODELO_CAPACIDAD_TANQUE = MODELO_CAPACIDAD_TANQUE
+  AND    @MODELO_CAPACIDAD_CARGA = MODELO_CAPACIDAD_CARGA
+
+  RETURN @MODELO_ID
+END
+GO
+
+
+CREATE FUNCTION StarTeam.Obtener_Tarea_Tipo_ID (@TAREA_TIPO_DESCRIPCION nvarchar(255))
+RETURNS int
+AS
+BEGIN
+	DECLARE @TAREA_TIPO_ID as int
+
+  SELECT @TAREA_TIPO_ID = TAREA_TIPO_ID FROM StarTeam.Tarea_Tipo
+  WHERE TAREA_TIPO_DESCRIPCION = @TAREA_TIPO_DESCRIPCION
+
+  RETURN @TAREA_TIPO_ID
+
+END
+GO
+
+CREATE FUNCTION StarTeam.Obtener_Camion_ID (@CAMION_PATENTE nvarchar(255))
+RETURNS int
+AS
+BEGIN
+	DECLARE @CAMION_ID as int
+
+  SELECT @CAMION_ID = CAMION_NUMERO FROM StarTeam.Camion
+  WHERE @CAMION_PATENTE = CAMION_PATENTE
+
+  RETURN @CAMION_ID
+
+END
+GO
+
+
+CREATE FUNCTION StarTeam.Obtener_Estado_ID(@ORDEN_ESTADO_DESCRIPCION nvarchar(255)) 
+RETURN int 
+AS
+BEGIN 
+  DECLARE @ORDEN_ESTADO_ID
+  SELECT @ORDEN_ESTADO_ID = ORDEN_ESTADO_ID FROM StarTeam.ORDEN_ESTADO
+  WHERE  @ORDEN_ESTADO_DESCRIPCION = ORDEN_ESTADO_DESCRIPCION
+  RETURN @ORDEN_ESTADO_ID
+
+END
+GO 
+
+CREATE FUNCTION StarTeam.Obtener_Taller_ID(@TALLER_CIUDAD NVARCHAR(255), @TALLER_NOMBRE NVARCHAR(255), @TALLER_MAIL NVARCHAR(255), @TALLER_TELEFONO DECIMAL(18,0), @TALLER_DIRECCION NVARCHAR(255))
+RETURN int
+AS
+BEGIN 
+  SELECT @ID_CIUDAD = StarTeam.Obtener_Ciudad_ID(@TALLER_CIUDAD)
+  DECLARE @ORDEN_TRABAJO_TALLER_NRO as int
+
+  SELECT @ORDEN_TRABAJO_TALLER_NRO = TALLER_NUMERO FROM StarTeam.Taller
+  WHERE  @ID_CIUDAD = TALLER_CIUDAD
+  AND    @TALLER_NOMBRE = TALLER_NOMBRE
+  AND    @TALLER_MAIL = TALLER_MAIL
+  AND    @TALLER_TELEFONO = TALLER_TELEFONO
+  AND    @TALLER_DIRECCION = TALLER_DIRECCION
+  RETURN @ORDEN_TRABAJO_TALLER_NRO
+END 
+GO 
+
+
+
 
 
 /*-------------------CREACION DE PROCEDIMIENTOS----------------------*/
@@ -432,7 +554,7 @@ CREATE PROCEDURE StarTeam.Migrar_Modelo
 AS
 BEGIN
   INSERT INTO StarTeam.Modelo (MODELO_CAMION_ID, MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA)
-          SELECT DISTINCT StarTeam.Obtener_Camion_ID(MODELO_CAMION), MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA
+          SELECT DISTINCT StarTeam.Obtener_Modelo_Camion_ID(MODELO_CAMION), MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA
           FROM gd_esquema.Maestra
           WHERE MODELO_CAMION IS NOT NULL
 	        ORDER BY MODELO_CAMION_ID ASC
@@ -453,7 +575,10 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Camion
 AS
 BEGIN
-  INSERT INTO StarTeam.Camion ()
+  INSERT INTO StarTeam.Camion (CAMION_MODELO, CAMION_MARCA, CAMION_PATENTE, CAMION_NRO_CHASIS, CAMION_NRO_MOTOR, CAMION_FECHA_ALTA)
+  SELECT DISTINCT StarTeam.Obtener_Modelo_ID(MODELO_CAMION, MODELO_VELOCIDAD_MAX, MODELO_CAPACIDAD_TANQUE, MODELO_CAPACIDAD_CARGA), StarTeam.Obtener_Marca_ID(MARCA_CAMION_MARCA), CAMION_PATENTE, CAMION_NRO_CHASIS, CAMION_NRO_MOTOR, CAMION_FECHA_ALTA
+  FROM gd_esquema.Maestra
+  WHERE CAMION_PATENTE IS NOT NULL
 END
 GO
 
@@ -472,7 +597,10 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Recorrido
 AS
 BEGIN
-  -- TODO
+  INSERT INTO StarTeam.Recorrido (RECORRIDO_CIUDAD_ORIGEN, RECORRIDO_CIUDAD_DESTINO, RECORRIDO_KM, RECORRIDO_PRECIO)
+  SELECT DISTINCT StarTeam.Obtener_Ciudad_ID(RECORRIDO_CIUDAD_ORIGEN), StarTeam.Obtener_Ciudad_ID(RECORRIDO_CIUDAD_DESTINO), RECORRIDO_KM, RECORRIDO_PRECIO
+  FROM gd_esquema.Maestra
+  WHERE  RECORRIDO_KM is not null 
 END
 GO
 
@@ -480,7 +608,19 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Viaje
 AS
 BEGIN
-  -- TODO
+  INSERT INTO StarTeam.Viaje (VIAJE_CAMION_NUMERO, 
+                              VIAJE_RECORRIDO_NUMERO, 
+                              VIAJE_CHOFER_LEGAJO, 
+                              VIAJE_FECHA_INICIO, 
+                              VIAJE_FECHA_FIN, 
+                              VIAJE_CONSUMO_COMBUSTIBLE)
+          SELECT DISTINCT StarTeam.Obtener_Viaje_Camion_Numero(CAMION_NUMERO), 
+                          StarTeam.Obtener_Viaje_Recorrido_Numero(RECORRIDO_NUMERO), 
+                          StarTeam.Obtener_Viaje_Chofer_Legajo(CHOFER_NRO_LEGAJO),
+                          VIAJE_FECHA_INICIO, 
+                          VIAJE_FECHA_FIN, 
+                          VIAJE_CONSUMO_COMBUSTIBLE
+          FROM gd_esquema.Maestra
 END
 GO
 
@@ -496,15 +636,17 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Taller
 AS
 BEGIN
-  -- TODO
-END
-GO
-
-
-CREATE PROCEDURE StarTeam.Migrar_Orden_Trabajo
-AS
-BEGIN
-  -- TODO
+  INSERT INTO StarTeam.Taller (TALLER_CIUDAD,
+                               TALLER_NOMBRE,
+                               TALLER_MAIL,
+                               TALLER_TELEFONO,
+                               TALLER_DIRECCION)
+  SELECT DISTINCT StarTeam.Obtener_Ciudad_ID(TALLER_CIUDAD),
+                  TALLER_NOMBRE,
+                  TALLER_MAIL,
+                  TALLER_TELEFONO,
+                  TALLER_DIRECCION
+  FROM gd_esquema.Maestra WHERE TALLER_CIUDAD IS NOT NULL
 END
 GO
 
@@ -519,12 +661,46 @@ END
 GO
 
 
+CREATE PROCEDURE StarTeam.Migrar_Orden_Trabajo
+AS
+BEGIN
+  INSERT INTO StarTeam.Orden_Trabajo (ORDEN_TRABAJO_CAMION,
+                                      ORDEN_TRABAJO_TALLER_NRO,
+                                      ORDEN_TRABAJO_ESTADO,
+                                      ORDEN_TRABAJO_FECHA)
+  SELECT DISTINCT StarTeam.Obtener_Camion_ID(CAMION_NUMERO),
+                  StarTeam.Obtener_Taller_ID(TALLER_CIUDAD, TALLER_NOMBRE, TALLER_MAIL, TALLER_TELEFONO, TALLER_DIRECCION),
+                  StarTeam.Obtener_Estado_ID(ORDEN_TRABAJO_ESTADO),
+                  ORDEN_TRABAJO_FECHA
+  FROM gd_esquema.Maestra 
+  WHERE CAMION_NUMERO IS NOT NULL
+END
+GO
+
+
 CREATE PROCEDURE StarTeam.Migrar_Mecanico
 AS
 BEGIN
-  INSERT INTO StarTeam.Mecanico (MECANICO_NOMBRE, MECANICO_APELLIDO, MECANICO_DNI, )
-  SELECT DISTINCT ORDEN_ESTADO FROM gd_esquema.Maestra
-  WHERE ORDEN_ESTADO IS NOT NULL
+  INSERT INTO StarTeam.Mecanico (MECANICO_NRO_LEGAJO, 
+                                 MECANICO_NOMBRE, 
+                                 MECANICO_APELLIDO, 
+                                 MECANICO_DNI, 
+                                 MECANICO_DIRECCION, 
+                                 MECANICO_MAIL, 
+                                 MECANICO_TELEFONO, 
+                                 MECANICO_FECHA_NAC, 
+                                 MECANICO_COSTO_HORA)
+  SELECT DISTINCT MECANICO_NRO_LEGAJO, 
+                  MECANICO_NOMBRE, 
+                  MECANICO_APELLIDO, 
+                  MECANICO_DNI, 
+                  MECANICO_DIRECCION, 
+                  MECANICO_MAIL, 
+                  MECANICO_TELEFONO, 
+                  MECANICO_FECHA_NAC, 
+                  MECANICO_COSTO_HORA 
+  FROM gd_esquema.Maestra
+  WHERE MECANICO_NRO_LEGAJO IS NOT NULL
 END
 GO
 
@@ -532,7 +708,9 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Tarea_Tipo
 AS
 BEGIN
-  -- TODO
+  INSERT INTO StarTeam.Tarea_Tipo(TAREA_TIPO_DESCRIPCION)
+  SELECT DISTINCT TIPO_TAREA FROM gd_esquema.Maestra
+  WHERE TIPO_TAREA IS NOT NULL
 END
 GO
 
@@ -540,7 +718,15 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Tarea
 AS
 BEGIN
-  -- TODO
+ INSERT INTO StarTeam.Tarea (TAREA_CODIGO,
+                             TAREA_TIPO,
+                             TAREA_DESCRIPCION,
+                             TAREA_TIEMPO_ESTIMADO)
+ SELECT DISTINCT TAREA_CODIGO,
+                 StarTeam.Obtener_Tarea_Tipo_ID(TIPO_TAREA),
+                 TAREA_DESCRIPCION,
+                 TAREA_TIEMPO_ESTIMADO
+FROM gd_esquema.Maestra WHERE TIPO_TAREA IS NOT NULL
 END
 GO
 
@@ -556,18 +742,26 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Material
 AS
 BEGIN
-  MATERIAL_COD
-  MATERIAL_DESCRIPCION
-  MATERIAL_PRECIO
+  INSERT INTO StarTeam.Material (MATERIAL_CODIGO, MATERIAL_DESCRIPCION, MATERIAL_PRECIO) 
+  SELECT DISTINCT MATERIAL_COD, MATERIAL_DESCRIPCION, MATERIAL_PRECIO FROM gd_esquema.Maestra WHERE MATERIAL_COD IS NOT NULL
 END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Material_Por_Tarea
+CREATE PROCEDURE StarTeam.Migrar_Material_X_Tarea
 AS
 BEGIN
-  -- TODO
+  INSERT INTO StarTeam.Material_X_Tarea(TAREA_CODIGO, MATERIAL_CODIGO)
+  SELECT DISTINCT TAREA_CODIGO, MATERIAL_COD FROM gd_esquema.Maestra WHERE TAREA_CODIGO IS NOT NULL
 END
+GO
+
+CREATE TABLE StarTeam.Material_X_Tarea (
+  TAREA_CODIGO int FOREIGN KEY REFERENCES StarTeam.Tarea(TAREA_CODIGO) NOT NULL,
+  MATERIAL_CODIGO int FOREIGN KEY REFERENCES StarTeam.Material(MATERIAL_CODIGO) NOT NULL,
+  MATERIAL_POR_TAREA_CANTIDAD int NOT NULL,
+  CONSTRAINT PK_Material_Por_Tarea PRIMARY KEY (TAREA_CODIGO, MATERIAL_CODIGO)
+);
 GO
 
 
@@ -584,8 +778,8 @@ EXEC StarTeam.Migrar_Recorrido
 EXEC StarTeam.Migrar_Viaje
 EXEC StarTeam.Migrar_Paquete_X_Viaje
 EXEC StarTeam.Migrar_Taller
-EXEC StarTeam.Migrar_Orden_Trabajo
 EXEC StarTeam.Migrar_Orden_Estado
+EXEC StarTeam.Migrar_Orden_Trabajo
 EXEC StarTeam.Migrar_Mecanico
 EXEC StarTeam.Migrar_Tarea_Tipo
 EXEC StarTeam.Migrar_Tarea
@@ -594,7 +788,6 @@ EXEC StarTeam.Migrar_Material
 EXEC StarTeam.Migrar_Material_Por_Tarea
 
 /*
-
 
 PK -> RELLENAR LA TABLA CON LO QUE ESTA EN LA TABLA MAESTRA -> PROCEDURE
 FK -> RELLENAR Y VINCULAR CON LO QUE ESTA EN LA TABLA MAESTRA Y LAS TABLAS QUE YO CREE (BUSCAR QUE LOS ID EN CUESTION SEAN IGUALES) 
@@ -605,19 +798,18 @@ x - 2. Paquete - PK
 x - 3. Modelo Camio - PK 
 x - 4. Modelo - PK/FK
 x - 5. Marca - PK
-6. Camnion - FK
+x - 6. Camnion - FK
 x - 7. Ciudad - PK -> // PUTO EL QUE LEE
-8. Recorrido - FK
+x - 8. Recorrido - FK
 9. Viaje -FK 
 10. Paquete por viaje - FK
-11. Taller - FK
+x - 11. Taller - FK
 12. Orden trabajo - FK
 x - 13. Orden Estado - PK
-14. Mecanico PK
-15. Tarea Tipo - PK
-16. Tarea FK
+x - 14. Mecanico PK
+x - 15. Tarea Tipo - PK
+x - 16. Tarea FK
 17. Tarea por roden de trabajo - FK
-18. Material PK -> Lo hago yo, el Dr. Otermín
-19. Material por tarea FK
-
+x - 18. Material PK
+x - 19. Material por tarea FK
 */
