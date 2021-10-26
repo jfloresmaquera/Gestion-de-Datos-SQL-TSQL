@@ -83,6 +83,10 @@ GO
 
 
 /*------------------------BORRAR FUNCIONES---------------------------*/
+IF OBJECT_ID('StarTeam.Obtener_Paquete_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Paquete_ID
+GO
+
 IF OBJECT_ID('StarTeam.Obtener_Modelo_Camion_ID') IS NOT NULL
 	DROP FUNCTION StarTeam.Obtener_Modelo_Camion_ID
 GO
@@ -94,6 +98,52 @@ GO
 IF OBJECT_ID('StarTeam.Obtener_Marca_ID') IS NOT NULL
 	DROP FUNCTION StarTeam.Obtener_Marca_ID
 GO
+
+IF OBJECT_ID('StarTeam.Obtener_Ciudad_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Ciudad_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Recorrido_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Recorrido_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Viaje_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Viaje_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Chofer_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Chofer_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Tarea_Tipo_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Tarea_Tipo_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Camion_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Camion_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Estado_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Estado_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Mecanico_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Mecanico_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Tarea_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Tarea_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Orden_Trabajo_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Orden_Trabajo_ID
+GO 
+
+IF OBJECT_ID('StarTeam.Obtener_Taller_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Taller_ID
+GO
+
+
 /*---------------------BORRAR PROCEDIMIENTOS-------------------------*/
 
 IF OBJECT_ID('StarTeam.Migrar_Chofer') IS NOT NULL
@@ -254,7 +304,7 @@ CREATE TABLE StarTeam.Paquete_X_Viaje (
   PAQUETE_NRO_VIAJE int FOREIGN KEY REFERENCES StarTeam.Viaje(VIAJE_NRO_VIAJE) NOT NULL,
   PAQUETE_ID int FOREIGN KEY REFERENCES StarTeam.Paquete(PAQUETE_ID) NOT NULL,
   PAQUETE_CANTIDAD int,
-  CONSTRAINT PK_Paquete_X_viaje PRIMARY KEY (PAQUETE_NRO_VIAJE, PAQUETE_ID)
+  CONSTRAINT PK_Paquete_X_viaje PRIMARY KEY (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
 );
 GO
 
@@ -344,18 +394,13 @@ GO
 
 /*---------------------CREACION DE FUNCIONES-------------------------*/
 
-CREATE FUNCTION StarTeam.Obtener_Paquete_ID (@PAQUETE_PESO_MAX decimal(18,2), @PAQUETE_ALTO_MAX decimal(18,2), @PAQUETE_ANCHO_MAX decimal(18,2), @PAQUETE_LARGO_MAX decimal(18,2), @PAQUETE_PRECIO decimal(18,2), @PAQUETE_DESCRIPCION nvarchar(255))
+CREATE FUNCTION StarTeam.Obtener_Paquete_ID (@PAQUETE_DESCRIPCION nvarchar(255))
 RETURNS int
 AS
 BEGIN
 	DECLARE @PAQUETE_ID as int
   SELECT @PAQUETE_ID = PAQUETE_ID FROM StarTeam.Paquete
-  WHERE @PAQUETE_PESO_MAX = PAQUETE_PESO_MAX
-  AND @PAQUETE_ALTO_MAX = PAQUETE_ALTO_MAX
-  AND @PAQUETE_ANCHO_MAX = PAQUETE_ANCHO_MAX
-  AND @PAQUETE_LARGO_MAX = PAQUETE_LARGO_MAX
-  AND @PAQUETE_PRECIO = PAQUETE_PRECIO
-  AND @PAQUETE_DESCRIPCION = PAQUETE_DESCRIPCION
+  WHERE  @PAQUETE_DESCRIPCION = PAQUETE_DESCRIPCION
   
   RETURN @PAQUETE_ID
 
@@ -448,27 +493,18 @@ END
 GO
 
 
-CREATE FUNCTION StarTeam.Obtener_Viaje_ID (@CHOFER_LEGAJO int, @DESCRIPCION_ORIGEN nvarchar(255), @DESCRIPCION_DESTINO nvarchar(255), @RECORRIDO_KM int, @RECORRIDO_PRECIO decimal(18,2), @PATENTE_CAMION nvarchar(255), @VIAJE_FECHA_INICIO datetime2(7), @VIAJE_FECHA_FIN datetime2(3), @VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2))
+CREATE FUNCTION StarTeam.Obtener_Viaje_ID (@PATENTE_CAMION nvarchar(255), @VIAJE_FECHA_INICIO datetime2(7))
 RETURNS int
 AS
 BEGIN
   DECLARE @VIAJE_ID AS int
-  DECLARE @VIAJE_RECORRIDO_NUMERO AS int
-  DECLARE @VIAJE_CHOFER_LEGAJO AS int
+  DECLARE @CAMION_ID AS int
 
   SELECT @CAMION_ID = StarTeam.Obtener_Camion_ID(@PATENTE_CAMION)
-  SELECT @VIAJE_RECORRIDO_NUMERO = StarTeam.Obtener_Recorrido_ID(@DESCRIPCION_ORIGEN, @DESCRIPCION_DESTINO, @RECORRIDO_KM, @RECORRIDO_PRECIO)
-  SELECT @VIAJE_CHOFER_LEGAJO = StarTeam.Obtener_Chofer_ID(@CHOFER_LEGAJO)
   
   SELECT @VIAJE_ID = VIAJE_NRO_VIAJE FROM StarTeam.Viaje 
   WHERE @CAMION_ID = VIAJE_CAMION_NUMERO
-  AND @VIAJE_RECORRIDO_NUMERO = VIAJE_RECORRIDO_NUMERO
-  AND @VIAJE_CHOFER_LEGAJO = VIAJE_CHOFER_LEGAJO
   AND @VIAJE_FECHA_INICIO = VIAJE_FECHA_INICIO
-  AND @VIAJE_FECHA_FIN = VIAJE_FECHA_FIN
-  AND @VIAJE_CONSUMO_COMBUSTIBLE = VIAJE_CONSUMO_COMBUSTIBLE
-
-
 
   RETURN @VIAJE_ID
 END
@@ -707,7 +743,7 @@ CREATE PROCEDURE StarTeam.Migrar_Ciudad
 AS
 BEGIN
   INSERT INTO StarTeam.Ciudad (CIUDAD_DESCRIPCION)
-  SELECT DISTINCT RECORRIDO_CIUDAD_ORIGEN 
+  SELECT DISTINCT (RECORRIDO_CIUDAD_ORIGEN 
   FROM gd_esquema.Maestra 
   WHERE RECORRIDO_CIUDAD_ORIGEN IS NOT NULL
     UNION SELECT DISTINCT RECORRIDO_CIUDAD_DESTINO 
@@ -740,16 +776,16 @@ GO
 CREATE PROCEDURE StarTeam.Migrar_Viaje
 AS
 BEGIN
-  INSERT INTO StarTeam.Viaje (VIAJE_CAMION_NUMERO, 
-                              VIAJE_RECORRIDO_NUMERO, 
-                              VIAJE_CHOFER_LEGAJO, 
-                              VIAJE_FECHA_INICIO, 
-                              VIAJE_FECHA_FIN, 
+  INSERT INTO StarTeam.Viaje (VIAJE_CAMION_NUMERO,
+                              VIAJE_RECORRIDO_NUMERO,
+                              VIAJE_CHOFER_LEGAJO,
+                              VIAJE_FECHA_INICIO,
+                              VIAJE_FECHA_FIN,
                               VIAJE_CONSUMO_COMBUSTIBLE)
   SELECT DISTINCT StarTeam.Obtener_Camion_ID(CAMION_PATENTE), 
-                  StarTeam.Obtener_Recorrido_ID(RECORRIDO_CIUDAD_ORIGEN, RECORRIDO_CIUDAD_DESTINO, RECORRIDO_KM, RECORRIDO_PRECIO), 
+                  StarTeam.Obtener_Recorrido_ID(RECORRIDO_CIUDAD_ORIGEN, RECORRIDO_CIUDAD_DESTINO, RECORRIDO_KM, RECORRIDO_PRECIO),
                   StarTeam.Obtener_Chofer_ID(CHOFER_NRO_LEGAJO),
-                  VIAJE_FECHA_INICIO, 
+                  VIAJE_FECHA_INICIO,
                   VIAJE_FECHA_FIN,
                   VIAJE_CONSUMO_COMBUSTIBLE
   FROM gd_esquema.Maestra
@@ -757,13 +793,24 @@ BEGIN
 END
 GO
 
+CREATE TABLE StarTeam.Viaje (
+  VIAJE_NRO_VIAJE int PRIMARY KEY IDENTITY(1,1),
+  VIAJE_CAMION_NUMERO int FOREIGN KEY REFERENCES StarTeam.Camion(CAMION_NUMERO) NOT NULL,
+  VIAJE_RECORRIDO_NUMERO int FOREIGN KEY REFERENCES StarTeam.Recorrido(RECORRIDO_NUMERO) NOT NULL,
+  VIAJE_CHOFER_LEGAJO int FOREIGN KEY REFERENCES StarTeam.Chofer(CHOFER_NRO_LEGAJO) NOT NULL,
+  VIAJE_FECHA_INICIO datetime2(7) NOT NULL,
+  VIAJE_FECHA_FIN datetime2(3), --Se completa una vez terminado el viaje, puede estar null hasta entonces
+  VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2) --Se completa una vez terminado el viaje, puede estar null hasta entonces
+);
+GO
 
 CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
 AS
 BEGIN
   INSERT INTO StarTeam.Paquete_X_Viaje (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
-  SELECT DISTINCT StarTeam.Obtener_Viaje_ID(CHOFER_NRO_LEGAJO, RECORRIDO_CIUDAD_ORIGEN, RECORRIDO_CIUDAD_DESTINO, RECORRIDO_KM, RECORRIDO_PRECIO, CAMION_PATENTE, VIAJE_FECHA_INICIO, VIAJE_FECHA_FIN, VIAJE_CONSUMO_COMBUSTIBLE),
-  StarTeam.Obtener_Paquete_ID(PAQUETE_PESO_MAX, PAQUETE_ALTO_MAX, PAQUETE_ANCHO_MAX, PAQUETE_LARGO_MAX, PAQUETE_PRECIO, PAQUETE_DESCRIPCION),
+  SELECT DISTINCT 
+  StarTeam.Obtener_Viaje_ID(CAMION_PATENTE, VIAJE_FECHA_INICIO),
+  StarTeam.Obtener_Paquete_ID(PAQUETE_DESCRIPCION),
   PAQUETE_CANTIDAD
   FROM gd_esquema.Maestra
   WHERE PAQUETE_PESO_MAX IS NOT NULL
@@ -775,7 +822,7 @@ CREATE PROCEDURE StarTeam.Migrar_Taller
 AS
 BEGIN
   INSERT INTO StarTeam.Taller (TALLER_CIUDAD,
-                               TALLER_NOMBRE,
+                              TALLER_NOMBRE,
                                TALLER_MAIL,
                                TALLER_TELEFONO,
                                TALLER_DIRECCION)
@@ -964,14 +1011,100 @@ x - 6. Camnion - FK
 x - 7. Ciudad - PK -> // PUTO EL QUE LEE
 x - 8. Recorrido - FK
 x - 9. Viaje -FK 
-10. Paquete por viaje - FK
+x - 10. Paquete por viaje - FK
 x - 11. Taller - FK
 x - 12. Orden trabajo - FK
 x - 13. Orden Estado - PK
 x - 14. Mecanico PK
 x - 15. Tarea Tipo - PK
 x - 16. Tarea FK
-17. Tarea por roden de trabajo - FK
+x - 17. Tarea por roden de trabajo - FK
 x - 18. Material PK
 x - 19. Material por tarea FK
 */
+
+
+
+IF OBJECT_ID('StarTeam.Paquete_X_Viaje', 'U') IS NOT NULL
+  DROP TABLE StarTeam.Paquete_X_Viaje
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Paquete_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Paquete_ID
+GO
+
+IF OBJECT_ID('StarTeam.Obtener_Viaje_ID') IS NOT NULL
+	DROP FUNCTION StarTeam.Obtener_Viaje_ID
+GO
+
+IF OBJECT_ID('StarTeam.Migrar_Paquete_X_Viaje') IS NOT NULL
+  DROP PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
+GO
+
+CREATE TABLE StarTeam.Paquete_X_Viaje (
+  PAQUETE_NRO_VIAJE int FOREIGN KEY REFERENCES StarTeam.Viaje(VIAJE_NRO_VIAJE) NOT NULL,
+  PAQUETE_ID int FOREIGN KEY REFERENCES StarTeam.Paquete(PAQUETE_ID) NOT NULL,
+  PAQUETE_CANTIDAD int,
+  CONSTRAINT PK_Paquete_X_viaje PRIMARY KEY (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
+);
+GO
+
+
+
+
+CREATE FUNCTION StarTeam.Obtener_Paquete_ID (@PAQUETE_DESCRIPCION nvarchar(255))
+RETURNS int
+AS
+BEGIN
+	DECLARE @PAQUETE_ID as int
+
+	select @PAQUETE_ID = paquete_id from StarTeam.paquete
+	where @PAQUETE_DESCRIPCION = PAQUETE_DESCRIPCION
+
+
+	RETURN @PAQUETE_ID
+
+END
+GO
+
+CREATE FUNCTION StarTeam.Obtener_Viaje_ID (@PATENTE_CAMION nvarchar(255), @VIAJE_FECHA_INICIO datetime2(7))
+RETURNS int
+AS
+BEGIN
+  DECLARE @VIAJE_ID AS int
+  DECLARE @CAMION_ID AS int
+
+  SELECT @CAMION_ID = StarTeam.Obtener_Camion_ID(@PATENTE_CAMION)
+  
+  SELECT @VIAJE_ID = VIAJE_NRO_VIAJE FROM StarTeam.Viaje 
+  WHERE @CAMION_ID = VIAJE_CAMION_NUMERO
+  AND @VIAJE_FECHA_INICIO = VIAJE_FECHA_INICIO
+
+  RETURN @VIAJE_ID
+END
+GO
+
+
+CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
+AS
+BEGIN
+	SELECT DISTINCT CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD INTO #temp_paquete
+	FROM gd_esquema.Maestra
+	WHERE PAQUETE_DESCRIPCION IS NOT NULL
+	GROUP BY CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD, VIAJE_CONSUMO_COMBUSTIBLE
+	ORDER BY 1 ASC
+
+
+  INSERT INTO StarTeam.Paquete_X_Viaje (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
+  SELECT DISTINCT 
+  StarTeam.Obtener_Viaje_ID(CAMION_PATENTE, VIAJE_FECHA_INICIO),
+  StarTeam.Obtener_Paquete_ID(PAQUETE_DESCRIPCION),
+  PAQUETE_CANTIDAD
+  FROM #temp_paquete
+
+  DROP table #temp_paquete
+END
+GO
+
+EXEC StarTeam.Migrar_Paquete_X_Viaje
+
