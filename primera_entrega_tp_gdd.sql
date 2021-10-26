@@ -1,7 +1,3 @@
-USE [GD2C2021]
-GO
-/*---------------------------BORRAR TABLAS---------------------------*/
-
 IF OBJECT_ID('StarTeam.Tarea_X_Orden_Trabajo', 'U') IS NOT NULL
   DROP TABLE StarTeam.Tarea_X_Orden_Trabajo
 GO
@@ -201,7 +197,7 @@ IF OBJECT_ID('StarTeam.Migrar_Material') IS NOT NULL
   DROP PROCEDURE StarTeam.Migrar_Material
 
 IF OBJECT_ID('StarTeam.Migrar_Material_X_Tarea') IS NOT NULL
-  DROP PROCEDURE StarTeam.Migrar_Material_Por_Tarea
+  DROP PROCEDURE StarTeam.Migrar_Material_X_Tarea
 
 
 /*-------------------------BORRAR ESQUEMA----------------------------*/
@@ -214,8 +210,8 @@ GO
 CREATE SCHEMA StarTeam
 GO
 
-/*-------------------------CREACION TABLAS---------------------------*/
 
+/*-------------------------CREACION TABLAS---------------------------*/
 
 
 CREATE TABLE StarTeam.Chofer (
@@ -743,7 +739,7 @@ CREATE PROCEDURE StarTeam.Migrar_Ciudad
 AS
 BEGIN
   INSERT INTO StarTeam.Ciudad (CIUDAD_DESCRIPCION)
-  SELECT DISTINCT (RECORRIDO_CIUDAD_ORIGEN 
+  SELECT DISTINCT RECORRIDO_CIUDAD_ORIGEN 
   FROM gd_esquema.Maestra 
   WHERE RECORRIDO_CIUDAD_ORIGEN IS NOT NULL
     UNION SELECT DISTINCT RECORRIDO_CIUDAD_DESTINO 
@@ -751,7 +747,7 @@ BEGIN
     WHERE RECORRIDO_CIUDAD_DESTINO IS NOT NULL
     UNION SELECT DISTINCT TALLER_CIUDAD 
     FROM gd_esquema.Maestra 
-    WHERE TALLER_CIUDAD IS NOT NULL)
+    WHERE TALLER_CIUDAD IS NOT NULL
 END
 GO
 
@@ -793,17 +789,7 @@ BEGIN
 END
 GO
 
-CREATE TABLE StarTeam.Viaje (
-  VIAJE_NRO_VIAJE int PRIMARY KEY IDENTITY(1,1),
-  VIAJE_CAMION_NUMERO int FOREIGN KEY REFERENCES StarTeam.Camion(CAMION_NUMERO) NOT NULL,
-  VIAJE_RECORRIDO_NUMERO int FOREIGN KEY REFERENCES StarTeam.Recorrido(RECORRIDO_NUMERO) NOT NULL,
-  VIAJE_CHOFER_LEGAJO int FOREIGN KEY REFERENCES StarTeam.Chofer(CHOFER_NRO_LEGAJO) NOT NULL,
-  VIAJE_FECHA_INICIO datetime2(7) NOT NULL,
-  VIAJE_FECHA_FIN datetime2(3), --Se completa una vez terminado el viaje, puede estar null hasta entonces
-  VIAJE_CONSUMO_COMBUSTIBLE decimal(18,2) --Se completa una vez terminado el viaje, puede estar null hasta entonces
-);
-GO
-
+/*
 CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
 AS
 BEGIN
@@ -814,6 +800,27 @@ BEGIN
   PAQUETE_CANTIDAD
   FROM gd_esquema.Maestra
   WHERE PAQUETE_PESO_MAX IS NOT NULL
+END
+GO*/
+
+CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
+AS
+BEGIN
+	SELECT DISTINCT CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD INTO #temp_paquete
+	FROM gd_esquema.Maestra
+	WHERE PAQUETE_DESCRIPCION IS NOT NULL
+	GROUP BY CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD, VIAJE_CONSUMO_COMBUSTIBLE
+	ORDER BY 1 ASC
+
+
+  INSERT INTO StarTeam.Paquete_X_Viaje (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
+  SELECT DISTINCT 
+  StarTeam.Obtener_Viaje_ID(CAMION_PATENTE, VIAJE_FECHA_INICIO),
+  StarTeam.Obtener_Paquete_ID(PAQUETE_DESCRIPCION),
+  PAQUETE_CANTIDAD
+  FROM #temp_paquete
+
+  DROP table #temp_paquete
 END
 GO
 
@@ -994,117 +1001,4 @@ EXEC StarTeam.Migrar_Tarea_Tipo
 EXEC StarTeam.Migrar_Tarea
 EXEC StarTeam.Migrar_Tarea_X_Orden_Trabajo
 EXEC StarTeam.Migrar_Material
-EXEC StarTeam.Migrar_Material_Por_Tarea
-
-/*
-
-PK -> RELLENAR LA TABLA CON LO QUE ESTA EN LA TABLA MAESTRA -> PROCEDURE
-FK -> RELLENAR Y VINCULAR CON LO QUE ESTA EN LA TABLA MAESTRA Y LAS TABLAS QUE YO CREE (BUSCAR QUE LOS ID EN CUESTION SEAN IGUALES) 
--> FUNCTION AND PROCEDURE
-
-x - 1. Chofer - PK
-x - 2. Paquete - PK
-x - 3. Modelo Camio - PK 
-x - 4. Modelo - PK/FK
-x - 5. Marca - PK
-x - 6. Camnion - FK
-x - 7. Ciudad - PK -> // PUTO EL QUE LEE
-x - 8. Recorrido - FK
-x - 9. Viaje -FK 
-x - 10. Paquete por viaje - FK
-x - 11. Taller - FK
-x - 12. Orden trabajo - FK
-x - 13. Orden Estado - PK
-x - 14. Mecanico PK
-x - 15. Tarea Tipo - PK
-x - 16. Tarea FK
-x - 17. Tarea por roden de trabajo - FK
-x - 18. Material PK
-x - 19. Material por tarea FK
-*/
-
-
-
-IF OBJECT_ID('StarTeam.Paquete_X_Viaje', 'U') IS NOT NULL
-  DROP TABLE StarTeam.Paquete_X_Viaje
-GO
-
-IF OBJECT_ID('StarTeam.Obtener_Paquete_ID') IS NOT NULL
-	DROP FUNCTION StarTeam.Obtener_Paquete_ID
-GO
-
-IF OBJECT_ID('StarTeam.Obtener_Viaje_ID') IS NOT NULL
-	DROP FUNCTION StarTeam.Obtener_Viaje_ID
-GO
-
-IF OBJECT_ID('StarTeam.Migrar_Paquete_X_Viaje') IS NOT NULL
-  DROP PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
-GO
-
-CREATE TABLE StarTeam.Paquete_X_Viaje (
-  PAQUETE_NRO_VIAJE int FOREIGN KEY REFERENCES StarTeam.Viaje(VIAJE_NRO_VIAJE) NOT NULL,
-  PAQUETE_ID int FOREIGN KEY REFERENCES StarTeam.Paquete(PAQUETE_ID) NOT NULL,
-  PAQUETE_CANTIDAD int,
-  CONSTRAINT PK_Paquete_X_viaje PRIMARY KEY (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
-);
-GO
-
-
-
-
-CREATE FUNCTION StarTeam.Obtener_Paquete_ID (@PAQUETE_DESCRIPCION nvarchar(255))
-RETURNS int
-AS
-BEGIN
-	DECLARE @PAQUETE_ID as int
-
-	select @PAQUETE_ID = paquete_id from StarTeam.paquete
-	where @PAQUETE_DESCRIPCION = PAQUETE_DESCRIPCION
-
-
-	RETURN @PAQUETE_ID
-
-END
-GO
-
-CREATE FUNCTION StarTeam.Obtener_Viaje_ID (@PATENTE_CAMION nvarchar(255), @VIAJE_FECHA_INICIO datetime2(7))
-RETURNS int
-AS
-BEGIN
-  DECLARE @VIAJE_ID AS int
-  DECLARE @CAMION_ID AS int
-
-  SELECT @CAMION_ID = StarTeam.Obtener_Camion_ID(@PATENTE_CAMION)
-  
-  SELECT @VIAJE_ID = VIAJE_NRO_VIAJE FROM StarTeam.Viaje 
-  WHERE @CAMION_ID = VIAJE_CAMION_NUMERO
-  AND @VIAJE_FECHA_INICIO = VIAJE_FECHA_INICIO
-
-  RETURN @VIAJE_ID
-END
-GO
-
-
-CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
-AS
-BEGIN
-	SELECT DISTINCT CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD INTO #temp_paquete
-	FROM gd_esquema.Maestra
-	WHERE PAQUETE_DESCRIPCION IS NOT NULL
-	GROUP BY CAMION_PATENTE, VIAJE_FECHA_INICIO, PAQUETE_DESCRIPCION, PAQUETE_CANTIDAD, VIAJE_CONSUMO_COMBUSTIBLE
-	ORDER BY 1 ASC
-
-
-  INSERT INTO StarTeam.Paquete_X_Viaje (PAQUETE_NRO_VIAJE, PAQUETE_ID, PAQUETE_CANTIDAD)
-  SELECT DISTINCT 
-  StarTeam.Obtener_Viaje_ID(CAMION_PATENTE, VIAJE_FECHA_INICIO),
-  StarTeam.Obtener_Paquete_ID(PAQUETE_DESCRIPCION),
-  PAQUETE_CANTIDAD
-  FROM #temp_paquete
-
-  DROP table #temp_paquete
-END
-GO
-
-EXEC StarTeam.Migrar_Paquete_X_Viaje
-
+EXEC StarTeam.Migrar_Material_X_Tarea
