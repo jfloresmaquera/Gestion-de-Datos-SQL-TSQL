@@ -101,7 +101,7 @@ IF OBJECT_ID('StarTeam.BI_Obtener_Cuatrimestre') IS NOT NULL
 	DROP FUNCTION StarTeam.BI_Obtener_Cuatrimestre
 GO
 
-/*---------------------BORRAR PROCEDIMIENTOS-------------------------*/
+/*-----------------------------------------BORRADO DE PROCEDURES--------------------------------------------*/
 
 IF OBJECT_ID('StarTeam.BI_Migrar_Chofer') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Chofer
@@ -160,8 +160,6 @@ IF OBJECT_ID('StarTeam.BI_Migrar_Material') IS NOT NULL
 IF OBJECT_ID('StarTeam.BI_Migrar_Material_X_Tarea') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Material_X_Tarea
 
-/*-----------------------------------------BORRADO DE PROCEDURES--------------------------------------------*/
-
 
 /*-----------------------------------------CREACION DE TABLAS-----------------------------------------------*/
 
@@ -187,7 +185,7 @@ CREATE TABLE StarTeam.BI_Chofer (
   BI_CHOFER_TELEFONO int NOT NULL,
   BI_CHOFER_MAIL nvarchar(255) NOT NULL,
   BI_CHOFER_FECHA_NAC datetime2(3) NOT NULL,
-  BI_CHOFER_RANGO_EDAD int FOREIGN KEY REFERENCES StarTeam.BI_Rango_Edad(BI_RANGO_EDAD_ID) NOT NULL
+  BI_CHOFER_RANGO_EDAD int FOREIGN KEY REFERENCES StarTeam.BI_Rango_Edad(BI_RANGO_EDAD_ID) NOT NULL,
   BI_CHOFER_COSTO_HORA int NOT NULL,
 );
 GO
@@ -304,7 +302,7 @@ CREATE TABLE StarTeam.BI_Mecanico (
   BI_MECANICO_MAIL nvarchar(255) NOT NULL,
   BI_MECANICO_TELEFONO int NOT NULL,
   BI_MECANICO_FECHA_NAC datetime2(3) NOT NULL,
-  BI_MECANICO_RANGO_EDAD int FOREIGN KEY REFERENCES StarTeam.BI_Rango_Edad(BI_RANGO_EDAD_ID) NOT NULL
+  BI_MECANICO_RANGO_EDAD int FOREIGN KEY REFERENCES StarTeam.BI_Rango_Edad(BI_RANGO_EDAD_ID) NOT NULL,
   BI_MECANICO_COSTO_HORA int NOT NULL
 );
 GO
@@ -353,9 +351,11 @@ CREATE TABLE StarTeam.BI_Material_X_Tarea (
 );
 GO
 
+
+
+
 /*-----------------------------------------CREACIÓN DE FUNCIONES--------------------------------------------*/
 
--- Deberíamos crear una funcion para obtener la edad y pasarle la edad a esta funcion , o recibir la echa de nacimiento y hacer todo dentro de esta?
 
 CREATE FUNCTION StarTeam.BI_Obtener_Rango_Edad(@FECHA_NACIMIENTO datetime2(3))
 RETURNS int
@@ -363,13 +363,14 @@ AS
 BEGIN
 DECLARE @RANGO_EDAD_ID as int
 DECLARE @EDAD as int
+DECLARE @FECHA_ACTUAL as datetime2(3)
 
-  SET @EDAD = 
+  SET @EDAD = DATEDIFF(year, @FECHA_NACIMIENTO, GETDATE()) 
 
   SELECT @RANGO_EDAD_ID = RANGO_EDAD_ID FROM StarTeam.BI_Rango_Edad
-  WHERE BI_MODELO_CAMION_DESCRIPCION = @MODELO_CAMION_DESCRIPCION
+  WHERE @EDAD BETWEEN BI_RANGO_EDAD_MIN AND BI_RANGO_EDAD_MAX
 
-  RETURN @MODELO_CAMION_ID
+  RETURN @RANGO_EDAD_ID
 
 END
 GO
@@ -443,7 +444,7 @@ END
 GO
 
 
-CREATE PROCEDURE STARTEAM.Migrar_Paquete
+CREATE PROCEDURE STARTEAM.BI_Migrar_Paquete
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Paquete
@@ -452,7 +453,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Modelo_Camion
+CREATE PROCEDURE StarTeam.BI_Migrar_Modelo_Camion
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Modelo_Camion
@@ -461,7 +462,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Modelo
+CREATE PROCEDURE StarTeam.BI_Migrar_Modelo
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Modelo
@@ -470,7 +471,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Marca
+CREATE PROCEDURE StarTeam.BI_Migrar_Marca
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Ciudad
@@ -479,7 +480,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Camion
+CREATE PROCEDURE StarTeam.BI_Migrar_Camion
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Camion
@@ -488,7 +489,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Ciudad
+CREATE PROCEDURE StarTeam.BI_Migrar_Ciudad
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Ciudad
@@ -497,7 +498,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Recorrido
+CREATE PROCEDURE StarTeam.BI_Migrar_Recorrido
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Recorrido 
@@ -506,7 +507,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Viaje
+CREATE PROCEDURE StarTeam.BI_Migrar_Viaje
 AS
 BEGIN
   --TODO: FIjarse que capaz haya que actualizarle algun campo mas
@@ -516,7 +517,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Paquete_X_Viaje
+CREATE PROCEDURE StarTeam.BI_Migrar_Paquete_X_Viaje
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Paquete_X_Viaje
@@ -525,7 +526,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Taller
+CREATE PROCEDURE StarTeam.BI_Migrar_Taller
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Taller
@@ -534,7 +535,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Orden_Estado
+CREATE PROCEDURE StarTeam.BI_Migrar_Orden_Estado
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Orden_Estado 
@@ -543,7 +544,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Orden_Trabajo
+CREATE PROCEDURE StarTeam.BI_Migrar_Orden_Trabajo
 AS
 BEGIN
 
@@ -553,7 +554,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Mecanico
+CREATE PROCEDURE StarTeam.BI_Migrar_Mecanico
 AS
 BEGIN
  INSERT INTO StarTeam.BI_Mecanico (BI_MECANICO_NRO_LEGAJO, 
@@ -574,14 +575,15 @@ BEGIN
                   MECANICO_MAIL, 
                   MECANICO_TELEFONO, 
                   MECANICO_FECHA_NAC,
-                  StarTeam.BI_Obtener_Rango_Edad(CHOFER_FECHA_NAC),
+                  StarTeam.BI_Obtener_Rango_Edad(MECANICO_FECHA_NAC),
                   MECANICO_COSTO_HORA 
   FROM StarTeam.Mecanico
 END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Tarea_Tipo
+
+CREATE PROCEDURE StarTeam.BI_Migrar_Tarea_Tipo
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Tarea_Tipo
@@ -590,7 +592,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Tarea
+CREATE PROCEDURE StarTeam.BI_Migrar_Tarea
 AS
 BEGIN
  INSERT INTO StarTeam.BI_Tarea 
@@ -599,7 +601,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Tarea_X_Orden_Trabajo
+CREATE PROCEDURE StarTeam.BI_Migrar_Tarea_X_Orden_Trabajo
 AS
 BEGIN
  
@@ -609,7 +611,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE StarTeam.Migrar_Material
+CREATE PROCEDURE StarTeam.BI_Migrar_Material
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Material 
@@ -619,7 +621,7 @@ END
 GO
 
 
-CREATE PROCEDURE StarTeam.Migrar_Material_X_Tarea
+CREATE PROCEDURE StarTeam.BI_Migrar_Material_X_Tarea
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Material_X_Tarea
