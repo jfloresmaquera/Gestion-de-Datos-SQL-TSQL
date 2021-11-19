@@ -991,6 +991,7 @@ GO
 
 /*------------------EJECUCION DE PROCEDIMIENTOS----------------------*/
 
+EXEC StarTeam.BI_Migrar_Tiempo
 EXEC StarTeam.Migrar_Chofer
 EXEC StarTeam.Migrar_Paquete
 EXEC StarTeam.Migrar_Modelo_Camion

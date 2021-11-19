@@ -101,9 +101,16 @@ IF OBJECT_ID('StarTeam.BI_Obtener_Cuatrimestre') IS NOT NULL
 	DROP FUNCTION StarTeam.BI_Obtener_Cuatrimestre
 GO
 
+IF OBJECT_ID('StarTeam.BI_Obtener_Tiempo_Ejecutado') IS NOT NULL
+	DROP FUNCTION StarTeam.BI_Obtener_Tiempo_Ejecutado
+GO
+
 /*-----------------------------------------BORRADO DE PROCEDURES--------------------------------------------*/
 IF OBJECT_ID('StarTeam.BI_Migrar_Rango_Edad') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Rango_Edad
+
+IF OBJECT_ID('StarTeam.BI_Migrar_Tiempo') IS NOT NULL
+  DROP PROCEDURE StarTeam.BI_Migrar_Tiempo
 
 IF OBJECT_ID('StarTeam.BI_Migrar_Chofer') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Chofer
@@ -383,18 +390,26 @@ BEGIN
 
 	DECLARE @CUATRIMESTRE DECIMAL(18,0)
 
-	IF (MONTH(@FECHA) BETWEEN 1 AND 3)
+	IF (MONTH(@FECHA) BETWEEN 1 AND 4)
 		SET @CUATRIMESTRE = 1
-	ELSE IF (MONTH(@FECHA) BETWEEN 4 AND 6)
+	ELSE IF (MONTH(@FECHA) BETWEEN 5 AND 8)
 		SET @CUATRIMESTRE = 2
-	ELSE IF (MONTH(@FECHA) BETWEEN 7 AND 10)
-		SET @CUATRIMESTRE = 3
 	ELSE
-		SET @CUATRIMESTRE = 4
+		SET @CUATRIMESTRE = 3
 
 	RETURN @CUATRIMESTRE
 END
 GO
+
+CREATE FUNCTION StarTeam.BI_Obtener_Tiempo_Ejecutado(@TAREA_FECHA_FIN DATETIME2(3), @TAREA_FECHA_INICIO DATETIME2(3))
+RETURNS DECIMAL(18,2)
+BEGIN
+DECLARE @TIEMPO_EJECUTADO DECIMAL(18,2)
+SET @TIEMPO_EJECUTADO = DATEDIFF(day, @TAREA_FECHA_INICIO, @TAREA_FECHA_FIN)
+RETURN @TIEMPO_EJECUTADO
+END
+GO
+
 
 /*-----------------------------------------CREACION DE PROCEDURES--------------------------------------------*/
 
@@ -407,30 +422,28 @@ BEGIN
   END
 GO
 
-/*
+
 CREATE PROCEDURE StarTeam.BI_Migrar_Tiempo
 AS
 BEGIN
-  INSERT INTO 
-  FROM
+  INSERT INTO StarTeam.BI_Tiempo(BI_TIEMPO_ANIO, BI_TIEMPO_CUATRIMESTRE)
+    (SELECT DISTINCT year(CAST(ORDEN_TRABAJO_FECHA AS DATETIME2)), StarTeam.BI_Obtener_Cuatrimestre(CAST(ORDEN_TRABAJO_FECHA AS DATETIME2)) FROM StarTeam.Orden_Trabajo)
 END
 GO
-*/
-
 
 CREATE PROCEDURE STARTEAM.BI_Migrar_Chofer
 AS
 BEGIN
   INSERT INTO StarTeam.BI_Chofer (BI_CHOFER_NRO_LEGAJO, 
-                               BI_CHOFER_NOMBRE, 
-                               BI_CHOFER_APELLIDO, 
-                               BI_CHOFER_DNI, 
-                               BI_CHOFER_DIRECCION, 
-                               BI_CHOFER_TELEFONO,
-                               BI_CHOFER_MAIL, 
-                               BI_CHOFER_FECHA_NAC, 
-                               BI_CHOFER_COSTO_HORA, 
-                               BI_CHOFER_RANGO_EDAD) 
+                                  BI_CHOFER_NOMBRE, 
+                                  BI_CHOFER_APELLIDO, 
+                                  BI_CHOFER_DNI, 
+                                  BI_CHOFER_DIRECCION, 
+                                  BI_CHOFER_TELEFONO,
+                                  BI_CHOFER_MAIL, 
+                                  BI_CHOFER_FECHA_NAC, 
+                                  BI_CHOFER_COSTO_HORA, 
+                                  BI_CHOFER_RANGO_EDAD) 
   SELECT  CHOFER_NRO_LEGAJO,
           CHOFER_NOMBRE,
           CHOFER_APELLIDO, 
@@ -607,8 +620,21 @@ CREATE PROCEDURE StarTeam.BI_Migrar_Tarea_X_Orden_Trabajo
 AS
 BEGIN
  
-  INSERT INTO StarTeam.BI_Tarea_X_Orden_Trabajo
-  SELECT * FROM StarTeam.Tarea_X_Orden_Trabajo
+  INSERT INTO StarTeam.BI_Tarea_X_Orden_Trabajo(BI_TAREA_ORDEN_TRABAJO,
+  BI_TAREA_CODIGO,
+  BI_TAREA_MECANICO,
+  BI_TAREA_FECHA_INICIO_PLANIFICADO,
+  BI_TAREA_FECHA_INICIO,
+  BI_TAREA_FECHA_FIN,
+  BI_TAREA_TIEMPO_EJECUTADO)
+  SELECT TAREA_ORDEN_TRABAJO,
+  TAREA_CODIGO,
+  TAREA_MECANICO,
+  TAREA_FECHA_INICIO_PLANIFICADO,
+  TAREA_FECHA_INICIO,
+  TAREA_FECHA_FIN,
+  StarTeam.BI_Obtener_Tiempo_Ejecutado(TAREA_FECHA_FIN, TAREA_FECHA_INICIO)
+   FROM StarTeam.Tarea_X_Orden_Trabajo
 
 END
 GO
