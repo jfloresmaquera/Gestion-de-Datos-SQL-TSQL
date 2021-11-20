@@ -3,6 +3,14 @@ GO
 
 /*-----------------------------------------BORRADO DE TABLAS------------------------------------------------*/
 
+IF OBJECT_ID('StarTeam.BI_HECHO_Camion_Cuatrimestre', 'U') IS NOT NULL
+  DROP TABLE StarTeam.BI_HECHO_Camion_Cuatrimestre
+GO
+
+IF OBJECT_ID('StarTeam.BI_HECHO_Costo_Tarea', 'U') IS NOT NULL
+  DROP TABLE StarTeam.BI_HECHO_Costo_Tarea
+GO
+
 IF OBJECT_ID('StarTeam.BI_Tarea_X_Orden_Trabajo', 'U') IS NOT NULL
   DROP TABLE StarTeam.BI_Tarea_X_Orden_Trabajo
 GO
@@ -91,6 +99,7 @@ GO
 
 
 
+
 /*------------------------BORRAR FUNCIONES---------------------------*/
 
 IF OBJECT_ID('StarTeam.BI_Obtener_Rango_Edad') IS NOT NULL
@@ -104,6 +113,20 @@ GO
 IF OBJECT_ID('StarTeam.BI_Obtener_Tiempo_Ejecutado') IS NOT NULL
 	DROP FUNCTION StarTeam.BI_Obtener_Tiempo_Ejecutado
 GO
+
+IF OBJECT_ID('StarTeam.BI_Obtener_Cantidad_Material_X_Tarea') IS NOT NULL
+	DROP FUNCTION StarTeam.BI_Obtener_Cantidad_Material_X_Tarea
+GO
+
+IF OBJECT_ID('StarTeam.BI_Obtener_Costo_Tarea') IS NOT NULL
+	DROP FUNCTION StarTeam.BI_Obtener_Costo_Tarea
+GO
+
+
+IF OBJECT_ID('StarTeam.BI_HECHO_Camion_Cuatrimestre') IS NOT NULL
+	DROP FUNCTION StarTeam.BI_HECHO_Camion_Cuatrimestre
+GO
+
 
 /*-----------------------------------------BORRADO DE PROCEDURES--------------------------------------------*/
 IF OBJECT_ID('StarTeam.BI_Migrar_Rango_Edad') IS NOT NULL
@@ -169,6 +192,8 @@ IF OBJECT_ID('StarTeam.BI_Migrar_Material') IS NOT NULL
 IF OBJECT_ID('StarTeam.BI_Migrar_Material_X_Tarea') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Material_X_Tarea
 
+IF OBJECT_ID('StarTeam.BI_Migrar_HECHO_Costo_Tarea') IS NOT NULL
+  DROP PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Tarea
 
 /*-----------------------------------------CREACION DE TABLAS-----------------------------------------------*/
 
@@ -328,7 +353,8 @@ CREATE TABLE StarTeam.BI_Tarea (
   BI_TAREA_CODIGO int PRIMARY KEY,
   BI_TAREA_TIPO int FOREIGN KEY REFERENCES StarTeam.BI_Tarea_Tipo(BI_TAREA_TIPO_ID) NOT NULL,
   BI_TAREA_DESCRIPCION nvarchar(255) NOT NULL,
-  BI_TAREA_TIEMPO_ESTIMADO int NOT NULL
+  BI_TAREA_TIEMPO_ESTIMADO int NOT NULL,
+  BI_COSTO_TAREA decimal(18,2)
 );
 GO
 
@@ -360,6 +386,20 @@ CREATE TABLE StarTeam.BI_Material_X_Tarea (
 );
 GO
 
+CREATE TABLE StarTeam.BI_HECHO_Camion_Cuatrimestre(
+  BI_CAMION_ID int FOREIGN KEY REFERENCES StarTeam.BI_Camion(BI_CAMION_NUMERO) NOT NULL,
+  BI_CUATRIMESTRE_ID int FOREIGN KEY REFERENCES StarTeam.BI_Tiempo(BI_TIEMPO_ID) NOT NULL,
+  BI_MAX_TIEMPO_FUERA_SERVICIO int NULL
+);
+GO
+
+
+CREATE TABLE StarTeam.BI_HECHO_Costo_Tarea(
+  BI_TAREA_CODIGO int FOREIGN KEY REFERENCES StarTeam.BI_Tarea(BI_TAREA_CODIGO) NOT NULL,
+  BI_COSTO_TAREA decimal(18,2)
+  CONSTRAINT PK_BI_TAREA_CODIGO PRIMARY KEY (BI_TAREA_CODIGO)
+);
+GO
 
 
 
@@ -408,6 +448,36 @@ DECLARE @TIEMPO_EJECUTADO DECIMAL(18,2)
 SET @TIEMPO_EJECUTADO = DATEDIFF(day, @TAREA_FECHA_INICIO, @TAREA_FECHA_FIN)
 RETURN @TIEMPO_EJECUTADO
 END
+GO
+
+
+CREATE FUNCTION StarTeam.BI_Obtener_Cantidad_Material_X_Tarea(@TAREA_CODIGO int , @MATERIAL_CODIGO nvarchar(100))
+RETURNS int
+BEGIN 
+	DECLARE @CANTIDAD_MATERIAL_X_TAREA as int
+
+	SELECT @CANTIDAD_MATERIAL_X_TAREA = count(MATERIAL_CODIGO)
+											 FROM StarTeam.TAREA t 
+											 JOIN StarTeam.MATERIAL_X_TAREA mxt ON t.TAREA_CODIGO = mxt.TAREA_CODIGO 
+											 WHERE MATERIAL_CODIGO = @MATERIAL_CODIGO AND t.TAREA_CODIGO = @TAREA_CODIGO
+											 GROUP BY mxt.MATERIAL_CODIGO, t.TAREA_CODIGO
+  RETURN @CANTIDAD_MATERIAL_X_TAREA
+END
+GO
+
+CREATE FUNCTION StarTeam.BI_Obtener_Costo_Tarea(@TAREA_CODIGO int)
+RETURNS decimal(18,2)
+BEGIN
+  DECLARE @COSTO_TAREA as decimal(18,2)
+
+  SELECT @COSTO_TAREA = sum(m.BI_MATERIAL_PRECIO * mxt.BI_MATERIAL_POR_TAREA_CANTIDAD)
+                        from StarTeam.BI_Tarea t 
+                        join StarTeam.BI_Material_X_Tarea mxt on t.BI_TAREA_CODIGO = mxt.BI_TAREA_CODIGO 
+                        join StarTeam.BI_Material m on mxt.BI_MATERIAL_CODIGO = m.BI_MATERIAL_CODIGO
+                        where @TAREA_CODIGO = t.BI_TAREA_CODIGO
+                        group by BI_TAREA_DESCRIPCION
+RETURN @COSTO_TAREA 
+END 
 GO
 
 
@@ -610,11 +680,17 @@ GO
 CREATE PROCEDURE StarTeam.BI_Migrar_Tarea
 AS
 BEGIN
- INSERT INTO StarTeam.BI_Tarea 
- SELECT * FROM StarTeam.Tarea
+ INSERT INTO StarTeam.BI_Tarea (BI_TAREA_CODIGO, 
+             BI_TAREA_TIPO,
+             BI_TAREA_DESCRIPCION,
+             BI_TAREA_TIEMPO_ESTIMADO)
+ SELECT TAREA_CODIGO, 
+        TAREA_TIPO,
+        TAREA_DESCRIPCION,
+        TAREA_TIEMPO_ESTIMADO
+  FROM StarTeam.Tarea
 END
 GO
-
 
 CREATE PROCEDURE StarTeam.BI_Migrar_Tarea_X_Orden_Trabajo
 AS
@@ -635,7 +711,6 @@ BEGIN
   TAREA_FECHA_FIN,
   StarTeam.BI_Obtener_Tiempo_Ejecutado(TAREA_FECHA_FIN, TAREA_FECHA_INICIO)
    FROM StarTeam.Tarea_X_Orden_Trabajo
-
 END
 GO
 
@@ -652,14 +727,32 @@ GO
 CREATE PROCEDURE StarTeam.BI_Migrar_Material_X_Tarea
 AS
 BEGIN
-  INSERT INTO StarTeam.BI_Material_X_Tarea
-  SELECT * FROM StarTeam.Material_X_Tarea
+  INSERT INTO StarTeam.BI_Material_X_Tarea(BI_TAREA_CODIGO, 
+                                           BI_MATERIAL_CODIGO, 
+                                           BI_MATERIAL_POR_TAREA_CANTIDAD)
+  SELECT TAREA_CODIGO, 
+         MATERIAL_CODIGO, 
+         StarTeam.BI_Obtener_Cantidad_Material_X_Tarea(TAREA_CODIGO, MATERIAL_CODIGO)
+  FROM StarTeam.Material_X_Tarea
+END
+GO
+
+CREATE PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Tarea
+AS
+BEGIN
+  INSERT INTO StarTeam.BI_HECHO_Costo_Tarea(BI_TAREA_CODIGO,
+                                            BI_COSTO_TAREA)
+  SELECT TAREA_CODIGO, 
+         StarTeam.BI_Obtener_Costo_Tarea(TAREA_CODIGO)
+  FROM StarTeam.Tarea
 END
 GO
 
 
+
 /*-----------------------------------------EJECUCION DE PROCEDURES------------------------------------------*/
 EXEC StarTeam.BI_Migrar_Rango_Edad
+EXEC StarTeam.BI_Migrar_Tiempo
 EXEC StarTeam.BI_Migrar_Chofer
 EXEC StarTeam.BI_Migrar_Paquete
 EXEC StarTeam.BI_Migrar_Modelo_Camion
@@ -679,3 +772,5 @@ EXEC StarTeam.BI_Migrar_Tarea
 EXEC StarTeam.BI_Migrar_Tarea_X_Orden_Trabajo
 EXEC StarTeam.BI_Migrar_Material
 EXEC StarTeam.BI_Migrar_Material_X_Tarea
+EXEC StarTeam.BI_Migrar_HECHO_Costo_Tarea
+
