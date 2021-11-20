@@ -1,7 +1,15 @@
-  USE GD2C2021
+USE GD2C2021
 GO
 
 /*-----------------------------------------BORRADO DE TABLAS------------------------------------------------*/
+
+IF OBJECT_ID('StarTeam.BI_HECHO_Costo_Orden_Trabajo', 'U') IS NOT NULL
+  DROP TABLE StarTeam.BI_HECHO_Costo_Orden_Trabajo
+GO
+
+IF OBJECT_ID('StarTeam.BI_HECHO_Costo_Mano_Obra_Tarea', 'U') IS NOT NULL
+  DROP TABLE StarTeam.BI_HECHO_Costo_Mano_Obra_Tarea
+GO
 
 IF OBJECT_ID('StarTeam.BI_HECHO_Camion_Cuatrimestre', 'U') IS NOT NULL
   DROP TABLE StarTeam.BI_HECHO_Camion_Cuatrimestre
@@ -72,7 +80,6 @@ IF OBJECT_ID('StarTeam.BI_Paquete', 'U') IS NOT NULL
   DROP TABLE StarTeam.BI_Paquete
 GO
 
-
 IF OBJECT_ID('StarTeam.BI_Chofer', 'U') IS NOT NULL
   DROP TABLE StarTeam.BI_Chofer
 GO
@@ -98,9 +105,15 @@ IF OBJECT_ID('StarTeam.BI_Tarea_Tipo', 'U') IS NOT NULL
 GO
 
 
-
-
 /*------------------------BORRAR FUNCIONES---------------------------*/
+
+IF OBJECT_ID('StarTeam.BI_Calcular_Salario_Mecanico') IS NOT NULL
+	DROP FUNCTION StarTeam.BI_Calcular_Salario_Mecanico
+GO
+
+IF OBJECT_ID(' StarTeam.BI_Calcular_Costo_Orden_Trabajo') IS NOT NULL
+	DROP FUNCTION  StarTeam.BI_Calcular_Costo_Orden_Trabajo
+GO
 
 IF OBJECT_ID('StarTeam.BI_Obtener_Rango_Edad') IS NOT NULL
 	DROP FUNCTION StarTeam.BI_Obtener_Rango_Edad
@@ -129,6 +142,13 @@ GO
 
 
 /*-----------------------------------------BORRADO DE PROCEDURES--------------------------------------------*/
+
+IF OBJECT_ID('StarTeam.BI_Migrar_HECHO_Costo_Mano_Obra_Tarea') IS NOT NULL
+  DROP PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Mano_Obra_Tarea 
+  
+IF OBJECT_ID('StarTeam.BI_Migrar_HECHO_Costo_Orden_Trabajo') IS NOT NULL
+  DROP PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Orden_Trabajo
+
 IF OBJECT_ID('StarTeam.BI_Migrar_Rango_Edad') IS NOT NULL
   DROP PROCEDURE StarTeam.BI_Migrar_Rango_Edad
 
@@ -401,6 +421,21 @@ CREATE TABLE StarTeam.BI_HECHO_Costo_Tarea(
 );
 GO
 
+CREATE TABLE StarTeam.BI_HECHO_Costo_Mano_Obra_Tarea(
+  BI_TAREA_ORDEN_TRABAJO int FOREIGN KEY REFERENCES StarTeam.BI_Orden_Trabajo(BI_ORDEN_TRABAJO_NUMERO) NOT NULL,
+  BI_TAREA_CODIGO int FOREIGN KEY REFERENCES StarTeam.BI_Tarea(BI_TAREA_CODIGO) NOT NULL,
+  BI_TAREA_MECANICO int FOREIGN KEY REFERENCES StarTeam.BI_Mecanico(BI_MECANICO_NRO_LEGAJO) NOT NULL,
+  BI_COSTO_MANO_OBRA_TAREA decimal(18,2),
+  CONSTRAINT PK_BI_COSTO_MANO_OBRA PRIMARY KEY (BI_TAREA_ORDEN_TRABAJO, BI_TAREA_CODIGO, BI_TAREA_MECANICO)
+);
+GO
+
+CREATE TABLE StarTeam.BI_HECHO_Costo_Orden_Trabajo(
+  BI_ORDEN_TRABAJO_NUMERO int FOREIGN KEY REFERENCES StarTeam.BI_Orden_Trabajo(BI_ORDEN_TRABAJO_NUMERO) NOT NULL,
+  BI_COSTO_ORDEN_TRABAJO decimal(18,2)
+  CONSTRAINT PK_BI_ORDEN_TRABAJO_NUMERO PRIMARY KEY (BI_ORDEN_TRABAJO_NUMERO)
+);
+GO
 
 
 /*-----------------------------------------CREACIÓN DE FUNCIONES--------------------------------------------*/
@@ -480,6 +515,32 @@ RETURN @COSTO_TAREA
 END 
 GO
 
+CREATE FUNCTION StarTeam.BI_Calcular_Salario_Mecanico(@BI_TAREA_MECANICO int, @BI_TAREA_TIEMPO_EJECUTADO decimal(18,2))
+RETURNS decimal (18,2)
+BEGIN
+DECLARE @SALARIO as decimal (18,2)
+DECLARE @PRECIO_POR_HORA decimal (18,2) 
+
+SELECT @PRECIO_POR_HORA = BI_MECANICO_COSTO_HORA FROM StarTeam.BI_Mecanico 
+WHERE @BI_TAREA_MECANICO = BI_MECANICO_NRO_LEGAJO
+
+SET @SALARIO = @PRECIO_POR_HORA * @BI_TAREA_TIEMPO_EJECUTADO * 8
+RETURN @SALARIO
+END
+GO
+/*
+CREATE FUNCTION StarTeam.BI_Calcular_Costo_Orden_Trabajo(@BI_ORDEN_TRABAJO_NUMERO int)
+RETURNS decimal(18,2)
+BEGIN
+  DECLARE @COSTO_ORDEN_TRABAJO as decimal(18,2)
+  SELECT @COSTO_ORDEN_TRABAJO = sum(BI_COSTO_MANO_OBRA_TAREA + BI_COSTO_TAREA)
+  FROM StarTeam.BI_HECHO_Costo_Mano_Obra_Tarea mot
+    JOIN StarTeam.BI_HECHO_Costo_Tarea ct ON ct.BI_TAREA_CODIGO = mot.BI_TAREA_CODIGO
+    WHERE @BI_ORDEN_TRABAJO_NUMERO = BI_TAREA_ORDEN_TRABAJO
+  
+RETURN @COSTO_ORDEN_TRABAJO
+END
+GO*/
 
 /*-----------------------------------------CREACION DE PROCEDURES--------------------------------------------*/
 
@@ -748,7 +809,36 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Mano_Obra_Tarea 
+AS
+BEGIN
+  INSERT INTO StarTeam.BI_HECHO_Costo_Mano_Obra_Tarea (
+   BI_TAREA_ORDEN_TRABAJO,
+  BI_TAREA_CODIGO,
+  BI_TAREA_MECANICO,
+  BI_COSTO_MANO_OBRA_TAREA)
+ SELECT 
+  BI_TAREA_ORDEN_TRABAJO,
+  BI_TAREA_CODIGO,
+  BI_TAREA_MECANICO,
+  StarTeam.BI_Calcular_Salario_Mecanico(BI_TAREA_MECANICO, BI_TAREA_TIEMPO_EJECUTADO)
+ FROM StarTeam.BI_Tarea_X_Orden_Trabajo
+END
+GO
 
+
+CREATE PROCEDURE StarTeam.BI_Migrar_HECHO_Costo_Orden_Trabajo
+AS
+BEGIN
+  INSERT INTO StarTeam.BI_HECHO_Costo_Orden_Trabajo (
+  BI_ORDEN_TRABAJO_NUMERO,
+  BI_COSTO_ORDEN_TRABAJO)
+ SELECT 
+  BI_ORDEN_TRABAJO_NUMERO,
+  StarTeam.BI_Calcular_Costo_Orden_Trabajo(BI_ORDEN_TRABAJO_NUMERO)
+ FROM StarTeam.BI_Orden_Trabajo
+END
+GO
 
 /*-----------------------------------------EJECUCION DE PROCEDURES------------------------------------------*/
 EXEC StarTeam.BI_Migrar_Rango_Edad
@@ -773,4 +863,4 @@ EXEC StarTeam.BI_Migrar_Tarea_X_Orden_Trabajo
 EXEC StarTeam.BI_Migrar_Material
 EXEC StarTeam.BI_Migrar_Material_X_Tarea
 EXEC StarTeam.BI_Migrar_HECHO_Costo_Tarea
-
+EXEC StarTeam.BI_Migrar_HECHO_Costo_Mano_Obra_Tarea
